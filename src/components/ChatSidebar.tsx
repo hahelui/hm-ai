@@ -106,27 +106,27 @@ export function ChatSidebar() {
               ) : (
                 chats.map((chat) => (
                   <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton
-                      onClick={() => navigate(`/chat/${chat.id}`)}
-                      isActive={chatId === chat.id}
-                      className="group"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <div className="flex-1 min-w-0">
-                        <div className="truncate font-medium">{chat.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatDate(chat.updatedAt)}
+                    <div className="group relative flex items-center">
+                      <SidebarMenuButton
+                        onClick={() => navigate(`/chat/${chat.id}`)}
+                        isActive={chatId === chat.id}
+                        className="flex-1"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <div className="flex-1 min-w-0">
+                          <div className="truncate font-medium">{chat.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(chat.updatedAt)}
+                          </div>
                         </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 h-6 w-6"
+                      </SidebarMenuButton>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 absolute right-2 h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
                         onClick={(e) => handleDeleteChat(chat.id, e)}
                       >
                         <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </SidebarMenuButton>
+                      </button>
+                    </div>
                   </SidebarMenuItem>
                 ))
               )}

@@ -146,11 +146,21 @@ export class AIService {
       if (request.presence_penalty !== undefined)
         body.presence_penalty = request.presence_penalty
 
-      const response = await fetch(`${this.apiUrl}/chat/completions`, {
+      // Try /responses endpoint first (Electron Hub), fallback to /chat/completions (OpenAI)
+      let response = await fetch(`${this.apiUrl}/responses`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
       })
+
+      // If /responses fails, try /chat/completions
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${this.apiUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -195,11 +205,21 @@ export class AIService {
       if (request.presence_penalty !== undefined)
         body.presence_penalty = request.presence_penalty
 
-      const response = await fetch(`${this.apiUrl}/chat/completions`, {
+      // Try /responses endpoint first (Electron Hub), fallback to /chat/completions (OpenAI)
+      let response = await fetch(`${this.apiUrl}/responses`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
       })
+
+      // If /responses fails, try /chat/completions
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${this.apiUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body),
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))

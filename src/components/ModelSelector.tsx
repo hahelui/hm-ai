@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -16,37 +16,75 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-
-const models = [
-  {
-    value: "gpt-4",
-    label: "GPT-4",
-  },
-  {
-    value: "gpt-4-turbo",
-    label: "GPT-4 Turbo",
-  },
-  {
-    value: "gpt-3.5-turbo",
-    label: "GPT-3.5 Turbo",
-  },
-  {
-    value: "gpt-4o",
-    label: "GPT-4o",
-  },
-  {
-    value: "gpt-4o-mini",
-    label: "GPT-4o Mini",
-  },
-]
+import { aiService, type Model } from "@/services/ai-service"
+import { toast } from "sonner"
 
 interface ModelSelectorProps {
   value: string
   onValueChange: (value: string) => void
+  onModelDetails?: (model: Model) => void
 }
 
-export function ModelSelector({ value, onValueChange }: ModelSelectorProps) {
+export function ModelSelector({ value, onValueChange, onModelDetails }: ModelSelectorProps) {
   const [open, setOpen] = React.useState(false)
+  const [models, setModels] = React.useState<Model[]>([])
+  const [isLoading, setIsLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    loadModels()
+  }, [])
+
+  const loadModels = async () => {
+    setIsLoading(true)
+    try {
+      const isConfigured = await aiService.isConfigured()
+      if (!isConfigured) {
+        // Use default models if API not configured
+        setModels([
+          { id: "gpt-4", object: "model", owned_by: "openai", name: "GPT-4" },
+          { id: "gpt-4-turbo", object: "model", owned_by: "openai", name: "GPT-4 Turbo" },
+          { id: "gpt-3.5-turbo", object: "model", owned_by: "openai", name: "GPT-3.5 Turbo" },
+          { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o" },
+          { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini" },
+        ])
+        return
+      }
+
+      const fetchedModels = await aiService.listModels()
+      setModels(fetchedModels)
+    } catch (error) {
+      console.error('Failed to load models:', error)
+      // Fallback to default models
+      setModels([
+        { id: "gpt-4", object: "model", owned_by: "openai", name: "GPT-4" },
+        { id: "gpt-4-turbo", object: "model", owned_by: "openai", name: "GPT-4 Turbo" },
+        { id: "gpt-3.5-turbo", object: "model", owned_by: "openai", name: "GPT-3.5 Turbo" },
+        { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o" },
+        { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini" },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleModelSelect = async (modelId: string) => {
+    onValueChange(modelId)
+    setOpen(false)
+
+    // Fetch model details if callback provided
+    if (onModelDetails) {
+      try {
+        const modelDetails = await aiService.getModel(modelId)
+        onModelDetails(modelDetails)
+      } catch (error) {
+        console.error('Failed to fetch model details:', error)
+      }
+    }
+  }
+
+  const getModelLabel = (model: Model) => {
+    return model.name || model.id
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -56,10 +94,18 @@ export function ModelSelector({ value, onValueChange }: ModelSelectorProps) {
           role="combobox"
           aria-expanded={open}
           className="w-[200px] justify-between"
+          disabled={isLoading}
         >
-          {value
-            ? models.find((model) => model.value === value)?.label
-            : "Select model..."}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </>
+          ) : value ? (
+            getModelLabel(models.find((model) => model.id === value) || { id: value, object: "model", owned_by: "" })
+          ) : (
+            "Select model..."
+          )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -71,20 +117,17 @@ export function ModelSelector({ value, onValueChange }: ModelSelectorProps) {
             <CommandGroup>
               {models.map((model) => (
                 <CommandItem
-                  key={model.value}
-                  value={model.value}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue === value ? "" : currentValue)
-                    setOpen(false)
-                  }}
+                  key={model.id}
+                  value={model.id}
+                  onSelect={() => handleModelSelect(model.id)}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === model.value ? "opacity-100" : "opacity-0"
+                      value === model.id ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {model.label}
+                  {getModelLabel(model)}
                 </CommandItem>
               ))}
             </CommandGroup>

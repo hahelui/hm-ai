@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getMessagesByChatId, addMessage, updateMessage, getChat, createChat, updateChat, type Message } from '@/lib/db'
 import { ModelSelector } from '@/components/ModelSelector'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { aiService, type ChatMessage } from '@/services/ai-service'
+import { aiService, type ChatMessage, type Model } from '@/services/ai-service'
 import { toast } from 'sonner'
 
 export function ChatPage() {
@@ -14,6 +14,7 @@ export function ChatPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
   const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo')
+  const [modelMaxTokens, setModelMaxTokens] = useState<number | null>(null)
 
   // Load messages when chatId changes
   useEffect(() => {
@@ -104,6 +105,7 @@ export function ChatPage() {
             ...conversationHistory,
             { role: 'user', content: userMessage },
           ],
+          max_tokens: modelMaxTokens || undefined,
         },
         // onChunk
         (content: string) => {
@@ -144,6 +146,17 @@ export function ChatPage() {
     setIsGenerating(false)
   }
 
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId)
+  }
+
+  const handleModelDetails = (model: Model) => {
+    if (model.tokens) {
+      setModelMaxTokens(model.tokens)
+      toast.success(`Model max tokens: ${model.tokens.toLocaleString()}`)
+    }
+  }
+
   return (
     <div className="h-full w-full flex flex-col">
       {/* Model Selector Header */}
@@ -152,7 +165,11 @@ export function ChatPage() {
           <SidebarTrigger />
           <div className="h-4 w-px bg-border" />
           <span className="text-sm font-medium text-muted-foreground">Model:</span>
-          <ModelSelector value={selectedModel} onValueChange={setSelectedModel} />
+          <ModelSelector 
+            value={selectedModel} 
+            onValueChange={handleModelChange}
+            onModelDetails={handleModelDetails}
+          />
         </div>
         {currentChatId && (
           <span className="text-xs text-muted-foreground">

@@ -8,9 +8,6 @@ export function AppLayout() {
       <div className="flex h-screen w-full">
         <ChatSidebar />
         <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="border-b p-2">
-            <SidebarTrigger />
-          </div>
           <div className="flex-1 overflow-hidden">
             <Outlet />
           </div>

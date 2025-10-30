@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Chat } from '@/components/ui/chat'
 import { useParams } from 'react-router-dom'
 import { getMessagesByChatId, addMessage, getChat, createChat, updateChat, type Message } from '@/lib/db'
+import { ModelSelector } from '@/components/ModelSelector'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 
 export function ChatPage() {
   const { chatId } = useParams()
@@ -9,6 +11,7 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo')
 
   // Load messages when chatId changes
   useEffect(() => {
@@ -87,16 +90,34 @@ export function ChatPage() {
   }
 
   return (
-    <div className="h-full w-full p-4">
-      <Chat
-        messages={messages}
-        input={input}
-        handleInputChange={handleInputChange}
-        handleSubmit={handleSubmit}
-        isGenerating={isGenerating}
-        stop={handleStop}
-        className="h-full"
-      />
+    <div className="h-full w-full flex flex-col">
+      {/* Model Selector Header */}
+      <div className="border-b px-4 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger />
+          <div className="h-4 w-px bg-border" />
+          <span className="text-sm font-medium text-muted-foreground">Model:</span>
+          <ModelSelector value={selectedModel} onValueChange={setSelectedModel} />
+        </div>
+        {currentChatId && (
+          <span className="text-xs text-muted-foreground">
+            {messages.length} message{messages.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      
+      {/* Chat Area */}
+      <div className="flex-1 overflow-hidden p-4">
+        <Chat
+          messages={messages}
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmit}
+          isGenerating={isGenerating}
+          stop={handleStop}
+          className="h-full"
+        />
+      </div>
     </div>
   )
 }

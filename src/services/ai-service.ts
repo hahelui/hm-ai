@@ -94,8 +94,11 @@ export class AIService {
       const data: ModelsResponse = await response.json()
       return data.data
     } catch (error) {
-      console.error('Failed to list models:', error)
-      throw new Error('Failed to fetch models: ' + (error as Error).message)
+      // Only log if it's not an auth error (401)
+      if (!(error as Error).message.includes('401')) {
+        console.error('Failed to list models:', error)
+      }
+      throw error
     }
   }
 
@@ -116,8 +119,11 @@ export class AIService {
 
       return await response.json()
     } catch (error) {
-      console.error('Failed to get model:', error)
-      throw new Error('Failed to fetch model: ' + (error as Error).message)
+      // Only log if it's not an auth error (401)
+      if (!(error as Error).message.includes('401')) {
+        console.error('Failed to get model:', error)
+      }
+      throw error
     }
   }
 

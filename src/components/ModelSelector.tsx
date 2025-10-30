@@ -36,32 +36,29 @@ export function ModelSelector({ value, onValueChange, onModelDetails }: ModelSel
 
   const loadModels = async () => {
     setIsLoading(true)
+    
+    // Default models to use as fallback
+    const defaultModels = [
+      { id: "gpt-4", object: "model", owned_by: "openai", name: "GPT-4" },
+      { id: "gpt-4-turbo", object: "model", owned_by: "openai", name: "GPT-4 Turbo" },
+      { id: "gpt-3.5-turbo", object: "model", owned_by: "openai", name: "GPT-3.5 Turbo" },
+      { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o" },
+      { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini" },
+    ]
+    
     try {
       const isConfigured = await aiService.isConfigured()
       if (!isConfigured) {
         // Use default models if API not configured
-        setModels([
-          { id: "gpt-4", object: "model", owned_by: "openai", name: "GPT-4" },
-          { id: "gpt-4-turbo", object: "model", owned_by: "openai", name: "GPT-4 Turbo" },
-          { id: "gpt-3.5-turbo", object: "model", owned_by: "openai", name: "GPT-3.5 Turbo" },
-          { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o" },
-          { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini" },
-        ])
+        setModels(defaultModels)
         return
       }
 
       const fetchedModels = await aiService.listModels()
       setModels(fetchedModels)
     } catch (error) {
-      console.error('Failed to load models:', error)
-      // Fallback to default models
-      setModels([
-        { id: "gpt-4", object: "model", owned_by: "openai", name: "GPT-4" },
-        { id: "gpt-4-turbo", object: "model", owned_by: "openai", name: "GPT-4 Turbo" },
-        { id: "gpt-3.5-turbo", object: "model", owned_by: "openai", name: "GPT-3.5 Turbo" },
-        { id: "gpt-4o", object: "model", owned_by: "openai", name: "GPT-4o" },
-        { id: "gpt-4o-mini", object: "model", owned_by: "openai", name: "GPT-4o Mini" },
-      ])
+      // Silently fallback to default models (don't log error if it's just auth)
+      setModels(defaultModels)
     } finally {
       setIsLoading(false)
     }

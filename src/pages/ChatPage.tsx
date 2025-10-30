@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Chat } from '@/components/ui/chat'
-import { useParams } from 'react-router-dom'
-import { getMessagesByChatId, addMessage, getChat, createChat, updateChat, type Message } from '@/lib/db'
+import { useParams, useNavigate } from 'react-router-dom'
+import { getMessagesByChatId, addMessage, updateMessage, getChat, createChat, updateChat, type Message } from '@/lib/db'
 import { ModelSelector } from '@/components/ModelSelector'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import { aiService, type ChatMessage } from '@/services/ai-service'
+import { toast } from 'sonner'
 
 export function ChatPage() {
   const { chatId } = useParams()
@@ -42,6 +44,18 @@ export function ChatPage() {
     
     if (!input.trim()) return
 
+    // Check if API is configured
+    const isConfigured = await aiService.isConfigured()
+    if (!isConfigured) {
+      toast.error('Please configure your API settings first', {
+        action: {
+          label: 'Settings',
+          onClick: () => window.location.href = '/settings',
+        },
+      })
+      return
+    }
+
     const userMessage = input.trim()
     setInput('')
     setIsGenerating(true)
@@ -66,21 +80,62 @@ export function ChatPage() {
 
       setMessages(prev => [...prev, userMsg])
 
-      // TODO: Call OpenAI API here
-      // For now, just add a placeholder assistant message
-      setTimeout(async () => {
-        const assistantMsg = await addMessage({
-          role: 'assistant',
-          content: 'This is a placeholder response. API integration coming soon!',
-          chatId: activeChatId!,
-        })
-        
-        setMessages(prev => [...prev, assistantMsg])
-        setIsGenerating(false)
-      }, 1000)
+      // Create placeholder assistant message
+      const assistantMsg = await addMessage({
+        role: 'assistant',
+        content: '',
+        chatId: activeChatId,
+      })
+
+      setMessages(prev => [...prev, assistantMsg])
+
+      // Convert messages to API format
+      const conversationHistory: ChatMessage[] = messages.map(m => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      }))
+
+      // Stream the response
+      let fullResponse = ''
+      await aiService.createStreamingChatCompletion(
+        {
+          model: selectedModel,
+          messages: [
+            ...conversationHistory,
+            { role: 'user', content: userMessage },
+          ],
+        },
+        // onChunk
+        (content: string) => {
+          fullResponse += content
+          setMessages(prev => 
+            prev.map(m => 
+              m.id === assistantMsg.id 
+                ? { ...m, content: fullResponse }
+                : m
+            )
+          )
+        },
+        // onComplete
+        async () => {
+          // Update the message in the database with final content
+          await updateMessage(assistantMsg.id, {
+            content: fullResponse,
+          })
+          setIsGenerating(false)
+        },
+        // onError
+        (error: Error) => {
+          console.error('Streaming error:', error)
+          toast.error('Failed to get response: ' + error.message)
+          setMessages(prev => prev.filter(m => m.id !== assistantMsg.id))
+          setIsGenerating(false)
+        }
+      )
 
     } catch (error) {
       console.error('Failed to send message:', error)
+      toast.error('Failed to send message: ' + (error as Error).message)
       setIsGenerating(false)
     }
   }

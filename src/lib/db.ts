@@ -135,6 +135,14 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
   return db.getAllFromIndex('messages', 'by-chat', chatId);
 }
 
+export async function updateMessage(id: string, updates: Partial<Omit<Message, 'id' | 'timestamp'>>): Promise<void> {
+  const db = await getDB();
+  const message = await db.get('messages', id);
+  if (message) {
+    await db.put('messages', { ...message, ...updates });
+  }
+}
+
 export async function deleteMessage(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('messages', id);

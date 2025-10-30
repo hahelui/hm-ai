@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Chat } from '@/components/ui/chat'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getMessagesByChatId, addMessage, updateMessage, getChat, createChat, updateChat, type Message } from '@/lib/db'
+import { getMessagesByChatId, addMessage, updateMessage, getChat, createChat, updateChat, getSettings, type Message } from '@/lib/db'
 import { ModelSelector } from '@/components/ModelSelector'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { aiService, type ChatMessage, type Model } from '@/services/ai-service'
@@ -13,8 +13,25 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
-  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo')
+  const [selectedModel, setSelectedModel] = useState<string>('')
   const [modelMaxTokens, setModelMaxTokens] = useState<number | null>(null)
+
+  // Load default model from settings on mount
+  useEffect(() => {
+    loadDefaultModel()
+  }, [])
+
+  const loadDefaultModel = async () => {
+    const settings = await getSettings()
+    if (settings?.model) {
+      setSelectedModel(settings.model)
+      if (settings.maxTokens) {
+        setModelMaxTokens(settings.maxTokens)
+      }
+    } else {
+      setSelectedModel('gpt-3.5-turbo')
+    }
+  }
 
   // Load messages when chatId changes
   useEffect(() => {

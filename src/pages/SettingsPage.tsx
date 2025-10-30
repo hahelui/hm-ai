@@ -225,6 +225,11 @@ export function SettingsPage() {
                 <ModelSelector 
                   value={settings.model} 
                   onValueChange={(value) => setSettings({ ...settings, model: value })}
+                  onModelDetails={(model) => {
+                    if (model.tokens) {
+                      setSettings({ ...settings, maxTokens: model.tokens })
+                    }
+                  }}
                 />
               </div>
 

@@ -7,9 +7,10 @@ export interface ChatMessage {
 
 export interface ChatCompletionRequest {
   model: string
-  messages: ChatMessage[]
+  input: string | ChatMessage[]
+  instructions?: string
   temperature?: number
-  max_tokens?: number
+  max_output_tokens?: number
   stream?: boolean
   top_p?: number
   frequency_penalty?: number
@@ -20,20 +21,23 @@ export interface ChatCompletionResponse {
   id: string
   object: string
   created: number
-  model: string
-  choices: Array<{
-    index: number
-    message: {
-      role: string
-      content: string
-    }
-    finish_reason: string
-  }>
+  model: string;
+  output: Array<{
+    id: string;
+    type: string;
+    status: string;
+    role: string;
+    content: Array<{
+      type: string;
+      text: string;
+      annotations: any[];
+    }>;
+  }>;
   usage: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+  };
 }
 
 export interface Model {
@@ -137,36 +141,19 @@ export class AIService {
       const settings = await getSettings()
       const headers = await this.getHeaders()
 
-      const body: ChatCompletionRequest = {
+      const body = {
         model: request.model,
-        messages: request.messages,
+        input: Array.isArray(request.input) ? request.input : [{ role: 'user', content: request.input }],
+        instructions: request.instructions,
         temperature: request.temperature ?? settings?.temperature ?? 0.7,
-        max_tokens: request.max_tokens ?? settings?.maxTokens ?? 2000,
         stream: false,
-      }
+      };
 
-      // Add optional parameters if provided
-      if (request.top_p !== undefined) body.top_p = request.top_p
-      if (request.frequency_penalty !== undefined)
-        body.frequency_penalty = request.frequency_penalty
-      if (request.presence_penalty !== undefined)
-        body.presence_penalty = request.presence_penalty
-
-      // Try /responses endpoint first (Electron Hub), fallback to /chat/completions (OpenAI)
-      let response = await fetch(`${this.apiUrl}/responses`, {
+      const response = await fetch(`${this.apiUrl}/responses`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
       })
-
-      // If /responses fails, try /chat/completions
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${this.apiUrl}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-        })
-      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -184,103 +171,6 @@ export class AIService {
   }
 
   /**
-   * Create a streaming chat completion
-   */
-  async createStreamingChatCompletion(
-    request: ChatCompletionRequest,
-    onChunk: (content: string) => void,
-    onComplete: () => void,
-    onError: (error: Error) => void
-  ): Promise<void> {
-    try {
-      const settings = await getSettings()
-      const headers = await this.getHeaders()
-
-      const body: ChatCompletionRequest = {
-        model: request.model,
-        messages: request.messages,
-        temperature: request.temperature ?? settings?.temperature ?? 0.7,
-        max_tokens: request.max_tokens ?? settings?.maxTokens ?? 2000,
-        stream: true,
-      }
-
-      // Add optional parameters if provided
-      if (request.top_p !== undefined) body.top_p = request.top_p
-      if (request.frequency_penalty !== undefined)
-        body.frequency_penalty = request.frequency_penalty
-      if (request.presence_penalty !== undefined)
-        body.presence_penalty = request.presence_penalty
-
-      // Try /responses endpoint first (Electron Hub), fallback to /chat/completions (OpenAI)
-      let response = await fetch(`${this.apiUrl}/responses`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      })
-
-      // If /responses fails, try /chat/completions
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${this.apiUrl}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-        })
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(
-          errorData.error?.message ||
-            `HTTP error! status: ${response.status}`
-        )
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('Response body is not readable')
-      }
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) {
-          onComplete()
-          break
-        }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          const trimmedLine = line.trim()
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue
-
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const jsonStr = trimmedLine.slice(6)
-              const data = JSON.parse(jsonStr)
-
-              const content = data.choices?.[0]?.delta?.content
-              if (content) {
-                onChunk(content)
-              }
-            } catch (e) {
-              console.error('Failed to parse SSE data:', e)
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to create streaming chat completion:', error)
-      onError(error as Error)
-    }
-  }
-
-  /**
    * Simple helper to send a single message and get a response
    */
   async sendMessage(
@@ -291,17 +181,12 @@ export class AIService {
     const settings = await getSettings()
     const selectedModel = model || settings?.model || 'gpt-3.5-turbo'
 
-    const messages: ChatMessage[] = [
-      ...(conversationHistory || []),
-      { role: 'user', content: message },
-    ]
-
     const response = await this.createChatCompletion({
       model: selectedModel,
-      messages,
+      input: conversationHistory ? [...conversationHistory, { role: 'user', content: message }] : message,
     })
 
-    return response.choices[0].message.content
+    return response.output[0].content[0].text
   }
 
   /**

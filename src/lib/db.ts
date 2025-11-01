@@ -17,6 +17,7 @@ export interface Chat {
 }
 
 export interface Settings {
+  id: string;
   apiKey: string;
   apiUrl: string;
   model: string;
@@ -46,8 +47,23 @@ let dbInstance: IDBPDatabase<HMAIDB> | null = null;
 export async function getDB(): Promise<IDBPDatabase<HMAIDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<HMAIDB>('hm-ai-db', 1, {
-    upgrade(db) {
+  dbInstance = await openDB<HMAIDB>('hm-ai-db', 2, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 2) {
+        // Delete old settings store if it exists
+        if (db.objectStoreNames.contains('settings')) {
+          db.deleteObjectStore('settings');
+        }
+        const settingsStore = db.createObjectStore('settings', { keyPath: 'id' });
+        settingsStore.add({
+          id: 'default',
+          apiKey: '',
+          apiUrl: 'https://api.openai.com/v1',
+          model: 'gpt-3.5-turbo',
+          temperature: 0.7,
+          maxTokens: 4096,
+        });
+      }
       // Create chats store
       if (!db.objectStoreNames.contains('chats')) {
         const chatStore = db.createObjectStore('chats', { keyPath: 'id' });
@@ -61,10 +77,6 @@ export async function getDB(): Promise<IDBPDatabase<HMAIDB>> {
         messageStore.createIndex('by-timestamp', 'timestamp');
       }
 
-      // Create settings store
-      if (!db.objectStoreNames.contains('settings')) {
-        db.createObjectStore('settings', { keyPath: 'apiKey' });
-      }
     },
   });
 
@@ -151,21 +163,21 @@ export async function deleteMessage(id: string): Promise<void> {
 // Settings operations
 export async function saveSettings(settings: Settings): Promise<void> {
   const db = await getDB();
-  await db.put('settings', settings);
+  await db.put('settings', { ...settings, id: 'default' });
 }
 
 export async function getSettings(): Promise<Settings | undefined> {
   const db = await getDB();
-  const allSettings = await db.getAll('settings');
-  return allSettings[0];
+  return db.get('settings', 'default');
 }
 
 export async function getDefaultSettings(): Promise<Settings> {
   return {
+    id: 'default',
     apiKey: '',
     apiUrl: 'https://api.openai.com/v1',
     model: 'gpt-3.5-turbo',
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: 4096,
   };
 }

@@ -44,10 +44,7 @@ export function SettingsPage() {
   const loadSettings = async () => {
     try {
       let currentSettings = await getSettings()
-      if (!currentSettings) {
-        currentSettings = await getDefaultSettings()
-      }
-      setSettings(currentSettings)
+      setSettings(currentSettings ?? await getDefaultSettings())
     } catch (error) {
       console.error('Failed to load settings:', error)
       toast.error('Failed to load settings')

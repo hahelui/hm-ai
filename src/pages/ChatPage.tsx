@@ -113,44 +113,30 @@ export function ChatPage() {
         content: m.content,
       }))
 
-      // Stream the response
-      let fullResponse = ''
-      await aiService.createStreamingChatCompletion(
-        {
-          model: selectedModel,
-          messages: [
-            ...conversationHistory,
-            { role: 'user', content: userMessage },
-          ],
-          max_tokens: modelMaxTokens || undefined,
-        },
-        // onChunk
-        (content: string) => {
-          fullResponse += content
-          setMessages(prev => 
-            prev.map(m => 
-              m.id === assistantMsg.id 
-                ? { ...m, content: fullResponse }
-                : m
-            )
-          )
-        },
-        // onComplete
-        async () => {
-          // Update the message in the database with final content
-          await updateMessage(assistantMsg.id, {
-            content: fullResponse,
-          })
-          setIsGenerating(false)
-        },
-        // onError
-        (error: Error) => {
-          console.error('Streaming error:', error)
-          toast.error('Failed to get response: ' + error.message)
-          setMessages(prev => prev.filter(m => m.id !== assistantMsg.id))
-          setIsGenerating(false)
-        }
-      )
+      const response = await aiService.createChatCompletion({
+       model: selectedModel,
+       input: [
+         ...conversationHistory,
+         { role: 'user', content: userMessage },
+       ],
+       max_output_tokens: modelMaxTokens || undefined,
+     });
+     
+     const assistantResponse = response.output[0].content[0].text;
+
+     await updateMessage(assistantMsg.id, {
+       content: assistantResponse,
+     });
+
+     setMessages(prev =>
+       prev.map(m =>
+         m.id === assistantMsg.id
+           ? { ...m, content: assistantResponse }
+           : m
+       )
+     )
+
+     setIsGenerating(false);
 
     } catch (error) {
       console.error('Failed to send message:', error)
